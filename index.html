@@ -6,6 +6,7 @@
     <title>小作坊财税合规管家</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="records.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
     <div class="max-w-4xl mx-auto px-4 py-8">
@@ -209,13 +210,25 @@ function calcCost(){
         📈预估可获得银行经营贷款额度：${Math.floor(monthIncome*0.6)}元`;
 }
 
+const STORAGE_KEY = 'finance_records';
 let records = [];
-function addRecord(){
-    const type = document.getElementById('ioType').value;
-    const money = Number(document.getElementById('money').value);
-    const note = document.getElementById('note').value;
-    records.push({type,money,note,time:new Date().toLocaleString()});
+
+function loadRecords(){
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            records = JSON.parse(saved);
+        } else if (window.recordsData && Array.isArray(window.recordsData)) {
+            records = window.recordsData;
+        }
+    } catch(e) { records = []; }
     renderRecord();
+    updateWarn();
+}
+function saveRecords(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+function updateWarn(){
     let warnText = "";
     const totalIn = records.filter(r=>r.type==="in").reduce((s,i)=>s+i.money,0);
     if(totalIn > 30000){
@@ -225,18 +238,41 @@ function addRecord(){
     }
     document.getElementById('warnBox').innerText = warnText;
 }
+function addRecord(){
+    const type = document.getElementById('ioType').value;
+    const money = Number(document.getElementById('money').value);
+    const note = document.getElementById('note').value;
+    if(!money || money <= 0){ alert('请输入有效的金额'); return; }
+    records.push({type,money,note,time:new Date().toLocaleString()});
+    saveRecords();
+    renderRecord();
+    updateWarn();
+    document.getElementById('money').value='';
+    document.getElementById('note').value='';
+}
+function deleteRecord(index){
+    if(!confirm('确定要删除这条流水记录吗？')) return;
+    records.splice(index, 1);
+    saveRecords();
+    renderRecord();
+    updateWarn();
+}
 function renderRecord(){
     const dom = document.getElementById('recordList');
     dom.innerHTML = "";
-    records.forEach(r=>{
+    records.forEach((r,index)=>{
         const color = r.type==="in"?"text-green-600":"text-red-600";
-        dom.innerHTML += `<div class="border p-2 rounded">
-            <span class="${color}">${r.type==="in"?"收入":"支出"}：${r.money}元</span>
-            <span class="text-gray-500 ml-2">${r.note}</span>
-            <div class="text-xs text-gray-400">${r.time}</div>
+        dom.innerHTML += `<div class="border p-2 rounded flex justify-between items-center">
+            <div>
+                <span class="${color}">${r.type==="in"?"收入":"支出"}：${r.money}元</span>
+                <span class="text-gray-500 ml-2">${r.note}</span>
+                <div class="text-xs text-gray-400">${r.time}</div>
+            </div>
+            <button onclick="deleteRecord(${index})" class="text-red-500 text-sm px-2 py-1 rounded hover:bg-red-50">删除</button>
         </div>`
     })
 }
+window.addEventListener('DOMContentLoaded', loadRecords);
 </script>
 </body>
 </html>
